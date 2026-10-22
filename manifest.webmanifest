@@ -1,0 +1,16 @@
+{
+  "name": "Sakuin - Catatan Keuangan Pribadi",
+  "short_name": "Sakuin",
+  "description": "Safe-to-Spend harian, radar tagihan, goal tabungan, dan split bill.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F8F7F4",
+  "theme_color": "#3B7A57",
+  "lang": "id",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

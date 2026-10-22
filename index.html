@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Sakuin: catat pengeluaran 3 detik, pantau Safe-to-Spend harian, tagihan, target tabungan, dan split bill. Data tersimpan di perangkat Anda.">
+    <meta name="theme-color" content="#3B7A57">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Sakuin - Catatan Keuangan Pribadi">
+    <meta property="og:description" content="Safe-to-Spend harian, radar tagihan, goal tabungan, dan split bill dalam satu aplikasi web ringan.">
+    <meta property="og:image" content="assets/icon-512.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <title>Sakuin - Catatan Keuangan Pribadi</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Minimalist Outline Icons -->
+    <script src="https://unpkg.com/lucide@0.453.0"></script>
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: '#3B7A57',
+                            light: '#EAF3EE',
+                            dark: '#52B788',
+                            hover: '#316347'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom External Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+</head>
+<body class="h-full bg-[#F8F7F4] dark:bg-[#111214] text-[#18181B] dark:text-[#F4F4F6] transition-colors duration-300 flex flex-col antialiased selection:bg-brand-light dark:selection:bg-brand/30 selection:text-brand">
+
+    <!-- Top Navigation / Header -->
+    <header class="sticky top-0 z-40 bg-[#F8F7F4]/90 dark:bg-[#111214]/90 backdrop-blur-md border-b border-[#E6E4DD] dark:border-[#2A2D32] px-4 sm:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-brand dark:bg-brand-dark flex items-center justify-center text-white shadow-sm overflow-hidden">
+                <img src="assets/logo.svg" alt="Sakuin Logo" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                <i data-lucide="wallet" class="w-5 h-5 hidden"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight leading-none flex items-center gap-2">
+                    Sakuin
+                </h1>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Catatan keuangan pribadi</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="resetDefaultData()" title="Reset ke Data Awal" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-[#E6E4DD] dark:border-[#2A2D32] bg-white dark:bg-[#1A1C1F] hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-300 transition-all shadow-sm">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Reset Data</span>
+            </button>
+            <button onclick="exportData()" title="Backup data (JSON)" aria-label="Backup data" class="w-9 h-9 rounded-xl border border-[#E6E4DD] dark:border-[#2A2D32] bg-white dark:bg-[#1A1C1F] flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm"><i data-lucide="download" class="w-4 h-4"></i></button>
+            <button onclick="document.getElementById('importFile').click()" title="Pulihkan dari backup" aria-label="Pulihkan data" class="w-9 h-9 rounded-xl border border-[#E6E4DD] dark:border-[#2A2D32] bg-white dark:bg-[#1A1C1F] flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm"><i data-lucide="upload" class="w-4 h-4"></i></button>
+            <input type="file" id="importFile" accept="application/json,.json" class="hidden" onchange="importData(event)">
+            <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-xl border border-[#E6E4DD] dark:border-[#2A2D32] bg-white dark:bg-[#1A1C1F] flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm">
+                <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 pb-28 space-y-6">
+
+        <!-- 1. Smart Quick-Add Bar (Top) -->
+        <section class="bg-white dark:bg-[#1A1C1F] rounded-2xl p-2.5 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex items-center gap-2">
+            <div class="pl-3 text-brand dark:text-brand-dark">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+            </div>
+            <input type="text" id="quickInput" placeholder="Ketik pengeluaran 3 detik: 'Kopi 25k', 'MRT 14rb', 'Nasi Padang 32k'..." 
+                class="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 py-2 font-medium"
+                onkeypress="handleQuickInput(event)">
+            <button onclick="openScanModal()" class="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-all text-zinc-700 dark:text-zinc-200">
+                <i data-lucide="scan-line" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Scan QRIS</span>
+            </button>
+            <button onclick="submitQuickAdd()" class="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+                <span>Catat</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+        </section>
+
+        <!-- Toast Notification Banner with Undo Support -->
+        <div id="toastNotification" role="status" aria-live="polite" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md transition-all duration-300 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between text-xs font-medium">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-2 h-2 rounded-full bg-brand animate-ping"></div>
+                <span id="toastText">Aksi berhasil!</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="undoBtn" onclick="undoLastDelete()" class="hidden underline font-bold text-emerald-400 dark:text-brand">Urungkan (Undo)</button>
+                <button onclick="hideNotification()" class="opacity-70 hover:opacity-100 text-xs font-bold px-1">Tutup</button>
+            </div>
+        </div>
+
+        <!-- Bento Grid Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- BENTO CARD 1: HERO SAFE-TO-SPEND & CRUD TRANSAKSI HARIAN (Span 2 cols) -->
+            <div id="sectionHome" class="bento-card lg:col-span-2 bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 sm:p-7 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex flex-col justify-between relative overflow-hidden">
+                <div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-brand animate-pulse"></span>
+                            <span class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Safe-to-Spend Harian</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openBudgetModal()" class="px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-brand text-xs font-semibold text-zinc-600 dark:text-zinc-300 flex items-center gap-1 transition-all">
+                                <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-brand"></i>
+                                <span>Atur Limit</span>
+                            </button>
+                            <span id="statusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                                Aman Terkendali
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mt-1">
+                        <h2 class="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Sisa jatah aman belanja hari ini:</h2>
+                        <div class="flex items-baseline space-x-2">
+                            <span id="safeToSpendAmount" class="num-font text-4xl sm:text-5xl font-bold tracking-tight text-[#18181B] dark:text-white">Rp 0</span>
+                            <span id="baseLimitLabel" class="text-xs text-zinc-400 num-font">/ Rp 0 limit harian</span>
+                        </div>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                            Tabungan & tagihan sudah dikunci otomatis. Sisa siklus anggaran: <span id="remainingDaysLabel" class="font-semibold text-zinc-700 dark:text-zinc-300">11 hari</span>.
+                        </p>
+                    </div>
+
+                    <div class="mt-5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-100 dark:border-zinc-800/80 grid grid-cols-3 gap-3">
+                        <div>
+                            <span class="text-[11px] text-zinc-400 block">Terpakai Hari Ini</span>
+                            <span id="todayExpense" class="num-font text-sm font-bold text-zinc-800 dark:text-zinc-200">Rp 0</span>
+                        </div>
+                        <div>
+                            <span class="text-[11px] text-zinc-400 block">Budget Bulanan Bebas</span>
+                            <span id="monthlyBudgetDisplay" class="num-font text-sm font-bold text-zinc-800 dark:text-zinc-200">Rp 0</span>
+                        </div>
+                        <div>
+                            <span class="text-[11px] text-zinc-400 block">Sisa Budget Bebas</span>
+                            <span id="monthlyRemaining" class="num-font text-sm font-bold text-brand dark:text-brand-dark">Rp 0</span>
+                        </div>
+                    </div>
+
+                    <!-- CRUD SECTION: DAFTAR TRANSAKSI HARI INI -->
+                    <div class="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800/80">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-200">Pengeluaran Hari Ini</span>
+                                <span id="txCountBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-semibold">0 item</span>
+                            </div>
+                            <button onclick="openTxModal()" class="px-3 py-1.5 rounded-xl bg-brand-light dark:bg-brand/20 text-brand dark:text-brand-dark text-xs font-semibold hover:bg-brand hover:text-white transition-all flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Transaksi
+                            </button>
+                        </div>
+                        <div id="txList" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BENTO CARD 2: SUBSCRIPTION & PAYLATER RADAR (FULL CRUD) -->
+            <div id="sectionRadar" class="bento-card bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                                <i data-lucide="bell-ring" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm leading-none">Radar Tagihan</h3>
+                                <span class="text-[10px] text-zinc-400">Subscription & PayLater</span>
+                            </div>
+                        </div>
+                        <button onclick="openRadarModal()" class="px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-xs font-semibold hover:bg-amber-600 hover:text-white transition-all flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah
+                        </button>
+                    </div>
+
+                    <div id="radarList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="mt-5 pt-3.5 border-t border-zinc-100 dark:border-zinc-800 text-xs flex items-center justify-between">
+                    <span class="text-zinc-400">Total Tagihan Belum Lunas:</span>
+                    <span id="radarTotalAmount" class="font-bold text-zinc-800 dark:text-zinc-100 num-font">Rp 0</span>
+                </div>
+            </div>
+
+            <!-- BENTO CARD 3: VISUAL GOAL POCKETS (FULL CRUD + UPLOAD FOTO) -->
+            <div id="sectionGoals" class="bento-card bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-brand-light dark:bg-brand/20 text-brand dark:text-brand-dark flex items-center justify-center">
+                                <i data-lucide="target" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm leading-none">Visual Goal Pockets</h3>
+                                <span class="text-[10px] text-zinc-400">Kantong Tabungan Impian</span>
+                            </div>
+                        </div>
+                        <button onclick="openGoalModal()" class="px-2.5 py-1.5 rounded-xl bg-brand-light dark:bg-brand/20 text-brand dark:text-brand-dark text-xs font-semibold hover:bg-brand hover:text-white transition-all flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Target Baru
+                        </button>
+                    </div>
+
+                    <div id="goalsDisplay" class="space-y-3.5 max-h-96 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                    <span id="goalsCount">Target aktif: 0</span>
+                    <span id="goalsTotalSaved" class="num-font font-bold text-brand dark:text-brand-dark">Rp 0</span>
+                </div>
+            </div>
+
+            <!-- BENTO CARD 4: INSTANT SPLIT BILL MANAGER & WA CUSTOMIZER (FULL CRUD) -->
+            <div id="sectionSplit" class="bento-card bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 flex items-center justify-center">
+                                <i data-lucide="receipt" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm leading-none">Instant Split Bill</h3>
+                                <span class="text-[10px] text-zinc-400">Patungan & Custom Teks WA</span>
+                            </div>
+                        </div>
+                        <button onclick="openSplitBillModal()" class="px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 text-xs font-semibold hover:bg-sky-600 hover:text-white transition-all flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Buat Bill
+                        </button>
+                    </div>
+
+                    <div id="splitBillList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                    <span>Klik ikon WA untuk kirim tagihan</span>
+                    <button onclick="openSplitBillModal()" class="text-sky-600 dark:text-sky-400 font-semibold hover:underline">Kalkulator Baru</button>
+                </div>
+            </div>
+
+            <!-- BENTO CARD 5: WEEKLY VIBE CHECK (FULL CRUD INSIGHTS) -->
+            <div id="sectionVibe" class="bento-card bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 border border-[#E6E4DD] dark:border-[#2A2D32] shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm leading-none">Weekly Vibe Check</h3>
+                                <span class="text-[10px] text-zinc-400">Insight & Evaluasi Santai</span>
+                            </div>
+                        </div>
+                        <button onclick="openVibeModal()" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah
+                        </button>
+                    </div>
+
+                    <div id="vibeList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                    <span id="vibeCountLabel">0 poin insight aktif</span>
+                    <button onclick="triggerNotification()" class="text-brand font-semibold hover:underline">Cek Pengingat Tagihan</button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#1A1C1F]/95 backdrop-blur-md border-t border-[#E6E4DD] dark:border-[#2A2D32] px-6 py-2 flex items-center justify-around">
+        <button onclick="scrollToSection('sectionHome')" class="flex flex-col items-center space-y-1 text-brand transition-all">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Home</span>
+        </button>
+        <button onclick="scrollToSection('sectionRadar')" class="flex flex-col items-center space-y-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-all">
+            <i data-lucide="bell-ring" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Radar</span>
+        </button>
+        
+        <button onclick="openTxModal()" title="Tambah Pengeluaran" class="w-12 h-12 rounded-2xl bg-brand hover:bg-brand-hover text-white flex items-center justify-center shadow-lg transform -translate-y-3 hover:scale-105 transition-all">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+
+        <button onclick="scrollToSection('sectionGoals')" class="flex flex-col items-center space-y-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-all">
+            <i data-lucide="target" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Goals</span>
+        </button>
+        <button onclick="scrollToSection('sectionSplit')" class="flex flex-col items-center space-y-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-all">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Split Bill</span>
+        </button>
+    </nav>
+
+    <!-- ==================== MODALS UNTUK CRUD MASING-MASING FITUR ==================== -->
+
+    <!-- MODAL 0: CRUD PENGATURAN SAFE-TO-SPEND & BUDGET HARIAN -->
+    <div id="budgetModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-md border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand"></i>
+                    <span>Atur Safe-to-Spend & Siklus</span>
+                </h3>
+                <button onclick="closeBudgetModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Limit Safe-to-Spend Harian (Rp)</label>
+                    <input type="number" id="budgetDailyInput" class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Sisa Hari di Siklus Bulan Ini (Hari)</label>
+                    <input type="number" id="budgetDaysInput" class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+            </div>
+            <div class="pt-2 flex space-x-3">
+                <button onclick="closeBudgetModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Batal</button>
+                <button onclick="saveBudgetConfig()" class="flex-1 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm">Simpan Limit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: CRUD TRANSAKSI HARIAN -->
+    <div id="txModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-md border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 id="txModalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4 text-brand"></i>
+                    <span>Catat Transaksi</span>
+                </h3>
+                <button onclick="closeTxModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <input type="hidden" id="txEditId" value="">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nama / Keterangan Pengeluaran</label>
+                    <input type="text" id="txNameInput" placeholder="Contoh: Es Kopi Susu" 
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nominal (Rp)</label>
+                        <input type="number" id="txAmountInput" placeholder="25000" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Jam Transaksi</label>
+                        <input type="time" id="txTimeInput" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Kategori</label>
+                    <select id="txCategoryInput" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                        <option value="☕ F&B">☕ F&B (Makan & Minum)</option>
+                        <option value="🛵 Transport">🛵 Transport (Ojol/MRT)</option>
+                        <option value="🛒 Belanja">🛒 Belanja Kebutuhan</option>
+                        <option value="🍿 Hiburan">🍿 Hiburan / Nongkrong</option>
+                        <option value="⚡ Cepat">⚡ Catat Cepat</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pt-2 flex space-x-3">
+                <button onclick="closeTxModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Batal</button>
+                <button onclick="saveTx()" class="flex-1 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm">Simpan Transaksi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CRUD RADAR TAGIHAN & PAYLATER -->
+    <div id="radarModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-md border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 id="radarModalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="bell-ring" class="w-4 h-4 text-amber-600"></i>
+                    <span>Kelola Tagihan & PayLater</span>
+                </h3>
+                <button onclick="closeRadarModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <input type="hidden" id="radarEditId" value="">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nama Langganan / PayLater</label>
+                    <input type="text" id="radarNameInput" placeholder="Contoh: Netflix / ShopeePayLater" 
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nominal (Rp)</label>
+                        <input type="number" id="radarAmountInput" placeholder="71500" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Jatuh Tempo (H-berapa)</label>
+                        <input type="number" id="radarDaysInput" placeholder="3" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Tipe Tagihan</label>
+                    <select id="radarTypeInput" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                        <option value="Subscription">🔄 Subscription (Langganan Bulanan)</option>
+                        <option value="PayLater">💳 PayLater / Cicilan</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pt-2 flex space-x-3">
+                <button onclick="closeRadarModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Batal</button>
+                <button onclick="saveRadar()" class="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm">Simpan Tagihan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CRUD GOAL POCKETS (FOTO SAMPUL + TARGET) -->
+    <div id="goalModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-lg border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 id="goalModalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="target" class="w-4 h-4 text-brand"></i>
+                    <span>Kelola Visual Goal Pocket</span>
+                </h3>
+                <button onclick="closeGoalModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <input type="hidden" id="goalEditId" value="">
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nama Target Impian</label>
+                        <input type="text" id="goalTitleInput" placeholder="Contoh: Coldplay Jakarta" 
+                            class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Label Kategori</label>
+                        <input type="text" id="goalTagInput" placeholder="Konser / Gadget / Liburan" 
+                            class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Dana Terkumpul (Rp)</label>
+                        <input type="number" id="goalCurrentInput" placeholder="1500000" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Target Total (Rp)</label>
+                        <input type="number" id="goalTargetInput" placeholder="2000000" 
+                            class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                    </div>
+                </div>
+
+                <!-- Foto Target Upload & Preview -->
+                <div class="space-y-2 pt-1">
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">Foto Target (Upload dari Perangkat / Pilih Preset Assets)</label>
+                    <div class="flex items-center space-x-3">
+                        <div class="w-20 h-20 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex-shrink-0">
+                            <img id="goalPreviewImg" src="assets/preset-konser.svg" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex-1 space-y-1.5">
+                            <input type="file" id="goalFileInput" accept="image/*" onchange="handleGoalPhotoUpload(event)" class="text-xs text-zinc-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-light file:text-brand hover:file:bg-brand/20 cursor-pointer w-full">
+                            <div class="flex flex-wrap gap-1.5 pt-1">
+                                <button type="button" onclick="selectPresetPhoto('konser')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold transition-all">🎫 Foto Konser</button>
+                                <button type="button" onclick="selectPresetPhoto('gadget')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold transition-all">📱 Foto Gadget</button>
+                                <button type="button" onclick="selectPresetPhoto('liburan')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold transition-all">🏖️ Foto Liburan</button>
+                                <button type="button" onclick="selectPresetPhoto('localKonser')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold transition-all">🎨 SVG Asset</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pt-2 flex space-x-3">
+                <button onclick="closeGoalModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Batal</button>
+                <button onclick="saveGoal()" class="flex-1 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-semibold shadow-sm">Simpan Target</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: CRUD INSTANT SPLIT BILL & CUSTOM WHATSAPP TEXT -->
+    <div id="splitBillModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-lg border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 id="splitModalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="receipt" class="w-4 h-4 text-sky-600"></i>
+                    <span>Kelola Split Bill & Custom Teks WA</span>
+                </h3>
+                <button onclick="closeSplitBillModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <input type="hidden" id="splitEditId" value="">
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Nama Acara / Tempat Nongkrong</label>
+                    <input type="text" id="splitTitleInput" value="Nongkrong Kopi Sore" oninput="calculateSplitBillPreview()"
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Subtotal Bill (Rp)</label>
+                    <input type="number" id="splitBillTotal" value="180000" oninput="calculateSplitBillPreview()"
+                        class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Jumlah Orang</label>
+                    <input type="number" id="splitBillMembers" value="4" min="1" oninput="calculateSplitBillPreview()"
+                        class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Pajak PB1 + Servis (%)</label>
+                    <input type="number" id="splitBillTax" value="15" oninput="calculateSplitBillPreview()"
+                        class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Rekening / E-Wallet Tujuan</label>
+                    <input type="text" id="splitBillAccount" value="" placeholder="BCA 1234567890 a.n Nama" oninput="calculateSplitBillPreview()"
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+            </div>
+
+            <div class="p-3 bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/50 rounded-2xl flex items-center justify-between text-xs">
+                <span class="text-sky-700 dark:text-sky-300 font-medium">Patungan per orang (+Pajak):</span>
+                <span id="splitPerPerson" class="num-font text-base font-bold text-sky-700 dark:text-sky-300">Rp 51.750</span>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-1">
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Kustomisasi Teks WhatsApp (Bisa Diedit Bebas)</label>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="setSplitTone('santai')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold">😎 Santai</button>
+                        <button type="button" onclick="setSplitTone('halus')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold">🤭 Nagih Halus</button>
+                        <button type="button" onclick="setSplitTone('sopan')" class="text-[10px] px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-brand hover:text-white font-semibold">👔 Sopan</button>
+                    </div>
+                </div>
+                <textarea id="splitCustomText" rows="4" 
+                    class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-brand font-medium leading-relaxed"></textarea>
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" onclick="appendSplitChip(' • Maksimal transfer malam ini ya 🙏')" class="text-[10px] px-2 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 hover:border-brand">+ Batas Waktu</button>
+                    <button type="button" onclick="appendSplitChip(' • Bisa via QRIS / GoPay di nomor yang sama')" class="text-[10px] px-2 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 hover:border-brand">+ Info QRIS</button>
+                    <button type="button" onclick="appendSplitChip(' • Struk lengkap menyusul di grup')" class="text-[10px] px-2 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 hover:border-brand">+ Info Struk</button>
+                </div>
+            </div>
+
+            <div class="pt-2 grid grid-cols-3 gap-2">
+                <button onclick="copySplitBillText()" class="py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold flex items-center justify-center gap-1 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Salin
+                </button>
+                <button onclick="sendToWhatsApp()" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-sm">
+                    <i data-lucide="send" class="w-3.5 h-3.5"></i> Kirim WA
+                </button>
+                <button onclick="saveSplitBillRecord()" class="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-sm">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i> Simpan Bill
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: CRUD WEEKLY VIBE CHECK (INSIGHT) -->
+    <div id="vibeModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-md border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 id="vibeModalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Kelola Weekly Vibe Check</span>
+                </h3>
+                <button onclick="closeVibeModal()" class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <input type="hidden" id="vibeEditId" value="">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Judul Topik Insight</label>
+                    <input type="text" id="vibeTitleInput" placeholder="Contoh: Ritme Ngopi / Pos Ojol" 
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Ikon Minimalis</label>
+                    <select id="vibeIconInput" class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand font-medium">
+                        <option value="coffee">☕ Coffee (Ngopi & Jajan)</option>
+                        <option value="navigation">🛵 Navigation (Transport/Ojol)</option>
+                        <option value="sparkles">✨ Sparkles (Buffer & Apresiasi)</option>
+                        <option value="shopping-bag">🛍️ Shopping Bag (Belanja)</option>
+                        <option value="flame">🔥 Flame (Pos Mulai Bocor)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Kalimat Evaluasi Santai</label>
+                    <textarea id="vibeTextInput" rows="3" placeholder="Tulis kalimat insight gaya santai..." 
+                        class="w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-brand font-medium"></textarea>
+                </div>
+            </div>
+            <div class="pt-2 flex space-x-3">
+                <button onclick="closeVibeModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Batal</button>
+                <button onclick="saveVibe()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm">Simpan Insight</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6: QRIS SCAN SIMULATOR -->
+    <div id="scanModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-sm border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-brand-light dark:bg-brand/20 text-brand dark:text-brand-dark mx-auto flex items-center justify-center">
+                <i data-lucide="scan-line" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-base">Scan Struk / QRIS Otomatis</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Unggah gambar kode QRIS. Merchant &amp; nominal dibaca otomatis bila browser mendukung.</p>
+            </div>
+            <div class="p-5 rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 flex flex-col items-center justify-center space-y-2">
+                <i data-lucide="upload-cloud" class="w-7 h-7 text-zinc-400"></i>
+                <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Pilih Gambar Struk / QRIS</span>
+                <input type="file" accept="image/*" onchange="handleScanFile(event)" class="text-xs text-zinc-500 file:mt-1 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand file:text-white cursor-pointer">
+            </div>
+            <button onclick="closeScanModal()" class="w-full py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold">Tutup</button>
+        </div>
+    </div>
+
+    <!-- MODAL ONBOARDING: Setup Pertama Kali (tampil jika belum set budget) -->
+    <div id="onboardingModal" class="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-backdrop bg-white dark:bg-[#1A1C1F] rounded-3xl p-6 w-full max-w-md border border-[#E6E4DD] dark:border-[#2A2D32] shadow-2xl space-y-5">
+            <!-- Header -->
+            <div class="text-center space-y-2 pt-2">
+                <div class="w-14 h-14 rounded-2xl bg-brand dark:bg-brand-dark flex items-center justify-center mx-auto overflow-hidden shadow-md">
+                    <img src="assets/logo.svg" alt="Sakuin" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                    <i data-lucide="wallet" class="w-7 h-7 text-white hidden"></i>
+                </div>
+                <h2 class="font-bold text-lg text-zinc-800 dark:text-white">Selamat datang di Sakuin! 👋</h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Sebelum mulai, atur dulu <strong>limit Safe-to-Spend harian</strong> kamu.<br>
+                    Ini bisa diubah kapan saja lewat menu <em>Atur Limit</em>.
+                </p>
+            </div>
+
+            <!-- Input Setup -->
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">
+                        💰 Limit Belanja Aman per Hari (Rp)
+                    </label>
+                    <input type="number" id="onboardingDailyInput" placeholder="Contoh: 150000"
+                        class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand font-semibold"
+                        min="10000" step="10000">
+                    <p class="text-[10px] text-zinc-400 mt-1">Misal: gaji 3 jt → isi 100.000/hari</p>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">
+                        📅 Sisa Hari di Bulan Ini
+                    </label>
+                    <input type="number" id="onboardingDaysInput" placeholder="Sisa hari bulan ini"
+                        class="num-font w-full bg-zinc-50 dark:bg-zinc-900 border border-[#E6E4DD] dark:border-[#2A2D32] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand font-medium"
+                        min="1" max="31">
+                    <p class="text-[10px] text-zinc-400 mt-1">Diisi otomatis sesuai sisa hari bulan ini</p>
+                </div>
+            </div>
+
+            <!-- CTA Button -->
+            <button onclick="saveOnboarding()" class="w-full py-3 rounded-2xl bg-brand hover:bg-brand-hover text-white text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2">
+                <i data-lucide="rocket" class="w-4 h-4"></i>
+                Mulai Pakai Sakuin!
+            </button>
+            <p class="text-center text-[10px] text-zinc-400">Data tersimpan 100% di perangkatmu. Tidak dikirim ke server mana pun.</p>
+        </div>
+    </div>
+
+    <!-- External Modular JavaScript -->
+    <script src="js/app.js"></script>
+</body>
+</html>
